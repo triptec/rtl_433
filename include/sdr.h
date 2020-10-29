@@ -172,7 +172,10 @@ int sdr_deactivate(sdr_dev_t *dev);
 */
 int sdr_reset(sdr_dev_t *dev, int verbose);
 
-int sdr_start(sdr_dev_t *dev, sdr_event_cb_t cb, void *ctx, uint32_t buf_num, uint32_t buf_len);
+int sdr_start_sync(sdr_dev_t *dev, sdr_event_cb_t cb, void *ctx, uint32_t buf_num, uint32_t buf_len);
+int sdr_stop_sync(sdr_dev_t *dev);
+
+int sdr_start(sdr_dev_t *dev, sdr_event_cb_t async_cb, void *async_ctx, uint32_t buf_num, uint32_t buf_len);
 int sdr_stop(sdr_dev_t *dev);
 
 #endif /* INCLUDE_SDR_H_ */
