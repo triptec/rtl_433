@@ -14,6 +14,7 @@
 #include "fatal.h"
 #include <stdlib.h>
 #include "tinyexpr.h"
+#include "rtl_433.h"
 
 static inline int bit(const uint8_t *bytes, unsigned bit)
 {
@@ -96,6 +97,7 @@ struct flex_params {
     uint8_t preamble_bits[128];
     struct flex_get getter[GETTER_SLOTS];
     unsigned decode_uart;
+    struct r_device decoder;
 };
 
 static void print_row_bytes(char *row_bytes, uint8_t *bits, int num_bits)
@@ -121,6 +123,15 @@ static void render_getters(data_t *data, uint8_t *bits, struct flex_params *para
             val = extract_number(bits, getter->bit_offset, getter->bit_count);
         int m;
 
+        for (m = 0; getter->map[m].val; m++) {
+            if (getter->map[m].key == val) {
+                data_append(data,
+                        getter->name, "", DATA_STRING, getter->map[m].val,
+                        NULL);
+                break;
+            }
+        }
+
         if(getter->expression) {
             fprintf(stderr, "expr: %s\n", getter->expression);
             double value = val;
@@ -140,15 +151,6 @@ static void render_getters(data_t *data, uint8_t *bits, struct flex_params *para
                 printf("\t%*s^\nError near here", err-1, "");
             }
 
-
-            for (m = 0; getter->map[m].val; m++) {
-                if (getter->map[m].key == val) {
-                    data_append(data,
-                            getter->name, "", DATA_STRING, getter->map[m].val,
-                            NULL);
-                    break;
-                }
-            }
             if (!getter->map[m].val) {
                 if (getter->format) {
                     data_append(data,
@@ -161,14 +163,6 @@ static void render_getters(data_t *data, uint8_t *bits, struct flex_params *para
                 }
             }
         } else {
-            for (m = 0; getter->map[m].val; m++) {
-                if (getter->map[m].key == val) {
-                    data_append(data,
-                            getter->name, "", DATA_STRING, getter->map[m].val,
-                            NULL);
-                    break;
-                }
-            }
             if (!getter->map[m].val) {
                 if (getter->format) {
                     data_append(data,
@@ -194,6 +188,13 @@ static int flex_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     char row_bytes[BITBUF_ROWS * BITBUF_COLS * 2 + 1]; // TODO: this is a lot of stack
 
     struct flex_params *params = decoder->decode_ctx;
+
+    if (params->decoder.name) {
+        printf("WOOT: %s", params->decoder.name);
+        int res = params->decoder.decode_fn(&params->decoder, bitbuffer);
+        printf("WOOT: %d", res);
+        return 1;
+    }
 
     // discard short / unwanted bitbuffers
     if ((bitbuffer->num_rows < params->min_rows)
@@ -593,9 +594,9 @@ static void parse_getter(const char *arg, struct flex_get *getter)
 }
 
 // NOTE: this is declared in rtl_433.c also.
-r_device *flex_create_device(char *spec);
+r_device *flex_create_device(char *spec, r_cfg_t *cfg);
 
-r_device *flex_create_device(char *spec)
+r_device *flex_create_device(char *spec, r_cfg_t *cfg)
 {
     if (!spec || !*spec || *spec == '?' || !strncasecmp(spec, "help", strlen(spec))) {
         help();
@@ -698,6 +699,9 @@ r_device *flex_create_device(char *spec)
         else if (!strcasecmp(key, "decode_uart"))
             params->decode_uart = val ? atoi(val) : 1;
 
+        // TODO: Check valid val
+        else if (!strcasecmp(key, "decoder"))
+            params->decoder = cfg->devices[atoi(val) - 1];
         else if (!strcasecmp(key, "get")) {
             if (get_count < GETTER_SLOTS)
                 parse_getter(val, &params->getter[get_count++]);

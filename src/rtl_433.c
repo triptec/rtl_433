@@ -122,7 +122,7 @@ static void delay_timer_wait(delay_timer_t *delay_timer, unsigned delay_us)
         usleep(delay_us - elapsed_us);
 }
 
-r_device *flex_create_device(char *spec); // maybe put this in some header file?
+r_device *flex_create_device(char *spec, r_cfg_t *cfg); // maybe put this in some header file?
 
 static void print_version(void)
 {
@@ -1104,9 +1104,9 @@ static void parse_conf_option(r_cfg_t *cfg, int opt, char *arg)
         break;
     case 'X':
         if (!arg)
-            flex_create_device(NULL);
+            flex_create_device(NULL, NULL);
 
-        flex_device = flex_create_device(arg);
+        flex_device = flex_create_device(arg, cfg);
         register_protocol(cfg, flex_device, "");
         break;
     case 'q':
