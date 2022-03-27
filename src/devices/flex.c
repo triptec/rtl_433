@@ -177,6 +177,37 @@ static void render_getters(data_t *data, uint8_t *bits, struct flex_params *para
         }
     }
 }
+static data_t *data1;
+void data_acquired_passback_handler(r_device *r_dev, data_t *data)
+{
+    data1 = data;
+}
+
+void printBits(size_t const size, void const * const ptr)
+{
+    unsigned char *b = (unsigned char*) ptr;
+    unsigned char byte;
+    int i, j;
+
+    for (i = size-1; i >= 0; i--) {
+        for (j = 7; j >= 0; j--) {
+            byte = (b[i] >> j) & 1;
+            printf("%u", byte);
+        }
+    }
+    puts("");
+}
+
+static union data_value get_payload(data_t *data, char const *key, data_type_t type)
+{
+    while (data) {
+        if (!strcmp(data->key,key) && data->type == type) {
+            return data->value;
+        }
+        data = data->next;
+    }
+    return (union data_value)NULL;
+}
 
 static int flex_callback(r_device *decoder, bitbuffer_t *bitbuffer)
 {
@@ -190,9 +221,26 @@ static int flex_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     struct flex_params *params = decoder->decode_ctx;
 
     if (params->decoder.name) {
-        printf("WOOT: %s", params->decoder.name);
+        params->decoder.output_fn = data_acquired_passback_handler;
         int res = params->decoder.decode_fn(&params->decoder, bitbuffer);
-        printf("WOOT: %d", res);
+        /* now the data is accessable through "data1" */
+        /* For example
+        union data_value dv = get_payload(data1, "payload", DATA_ARRAY);
+        struct data_array payload;
+        payload = *(struct data_array*) dv.v_ptr;
+        printf("num_values: %d\n", payload.num_values);
+        printBits(sizeof (DATA_INT) * payload.num_values, payload.values);
+        */
+         // or
+
+        union data_value dv = get_payload(data1, "payload_str", DATA_STRING);
+        const char *payload_str;
+        payload_str = dv.v_ptr;
+        printf("strlen: %d\n", strlen(payload_str));
+        printBits(strlen(payload_str), payload_str);
+
+        /* run getters etc on the data1 object */
+
         return 1;
     }
 

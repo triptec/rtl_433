@@ -14,6 +14,7 @@ The symbol encoding ensures a maximum run (gap) of 4x bit-width.
 Sensible Living uses a speed of 1000, i.e. 1000 us per bit.
 */
 
+#include <stdlib.h>
 #include "decoder.h"
 
 // Maximum message length (including the headers, byte count and FCS) we are willing to support
@@ -153,12 +154,14 @@ static int radiohead_ask_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     header_from  = rh_payload[2];
     header_id    = rh_payload[3];
     header_flags = rh_payload[4];
-
     // Format data
+    char *rh_str_payload;
+    rh_str_payload = (char *)malloc((data_len + 1) * sizeof(char));
     for (int j = 0; j < data_len; j++) {
         rh_data_payload[j] = (int)rh_payload[5 + j];
-        printf("%d\n", rh_data_payload[j]);
+        rh_str_payload[j] = rh_payload[5 + j];
     }
+    rh_str_payload[data_len] = '\0';
     /* clang-format off */
     data = data_make(
             "model",        "",             DATA_STRING, "RadioHead-ASK",
@@ -168,6 +171,7 @@ static int radiohead_ask_callback(r_device *decoder, bitbuffer_t *bitbuffer)
             "id",           "Id",           DATA_INT, header_id,
             "flags",        "Flags",        DATA_INT, header_flags,
             "payload",      "Payload",      DATA_ARRAY, data_array(data_len, DATA_INT, rh_data_payload),
+            "payload_str",  "Payload Str",  DATA_STRING, rh_str_payload,
             "mic",          "Integrity",    DATA_STRING, "CRC",
             NULL);
     /* clang-format on */
