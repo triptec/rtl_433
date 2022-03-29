@@ -14,6 +14,7 @@
 #include "fatal.h"
 #include <stdlib.h>
 #include "tinyexpr.h"
+#include "uthash.h"
 
 static inline int bit(const uint8_t *bytes, unsigned bit)
 {
@@ -549,6 +550,10 @@ static const char *parse_expr(const char *arg, struct flex_get *getter) {
     return ptr++;
 }
 
+static void parse_statement(const char *key, const char *arg){
+    printf("BooM");
+}
+
 static void parse_getter(const char *arg, struct flex_get *getter)
 {
     uint8_t bitrow[128];
@@ -592,6 +597,30 @@ static void parse_getter(const char *arg, struct flex_get *getter)
     */
 }
 
+struct flex_variable {
+    unsigned bit_offset;
+    unsigned bit_count;
+    unsigned long mask;
+    const char *name;
+    int value;
+    const char *format;
+    const char *expression;
+    UT_hash_handle hh; /* makes this structure hashable */
+};
+
+struct flex_variable *flex_variables = NULL;
+
+void add_variable(struct flex_variable *s) {
+    HASH_ADD_STR( flex_variables, name, s );
+}
+
+struct flex_variable *find_variable(const char *variable_name) {
+    struct flex_variable *s;
+
+    HASH_FIND_STR( flex_variables, variable_name, s );
+    return s;
+}
+
 // NOTE: this is declared in rtl_433.c also.
 r_device *flex_create_device(char *spec);
 
@@ -602,6 +631,8 @@ r_device *flex_create_device(char *spec)
     }
 
     struct flex_params *params = calloc(1, sizeof(*params));
+
+
     if (!params) {
         WARN_CALLOC("flex_create_device()");
         return NULL; // NOTE: returns NULL on alloc failure.
@@ -706,6 +737,8 @@ r_device *flex_create_device(char *spec)
                 usage();
             }
 
+        } else if (key[strlen(key)-1] == ':') {
+            parse_statement(key, val);
         } else {
             fprintf(stderr, "Bad flex spec, unknown keyword (%s)!\n", key);
             usage();
